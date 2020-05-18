@@ -29,7 +29,7 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -532,21 +532,19 @@ func (p *PriorityQueue) getUnschedulablePodsWithMatchingAffinityTerm(pod *v1.Pod
 	var podsToMove []*framework.QueuedPodInfo
 	for _, pInfo := range p.unschedulableQ.podInfoMap {
 		up := pInfo.Pod
-		affinity := up.Spec.Affinity
-		if affinity != nil && affinity.PodAffinity != nil {
-			terms := util.GetPodAffinityTerms(affinity.PodAffinity)
-			for _, term := range terms {
-				namespaces := util.GetNamespacesFromPodAffinityTerm(up, &term)
-				selector, err := metav1.LabelSelectorAsSelector(term.LabelSelector)
-				if err != nil {
-					klog.Errorf("Error getting label selectors for pod: %v.", up.Name)
-				}
-				if util.PodMatchesTermsNamespaceAndSelector(pod, namespaces, selector) {
-					podsToMove = append(podsToMove, pInfo)
-					break
-				}
+		terms := util.GetPodAffinityTerms(up.Spec.Affinity)
+		for _, term := range terms {
+			namespaces := util.GetNamespacesFromPodAffinityTerm(up, &term)
+			selector, err := metav1.LabelSelectorAsSelector(term.LabelSelector)
+			if err != nil {
+				klog.Errorf("Error getting label selectors for pod: %v.", up.Name)
+			}
+			if util.PodMatchesTermsNamespaceAndSelector(pod, namespaces, selector) {
+				podsToMove = append(podsToMove, pInfo)
+				break
 			}
 		}
+
 	}
 	return podsToMove
 }
@@ -565,7 +563,7 @@ func (p *PriorityQueue) NominatedPodsForNode(nodeName string) []*v1.Pod {
 func (p *PriorityQueue) PendingPods() []*v1.Pod {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
-	result := []*v1.Pod{}
+	var result []*v1.Pod
 	for _, pInfo := range p.activeQ.List() {
 		result = append(result, pInfo.(*framework.QueuedPodInfo).Pod)
 	}
